@@ -47,8 +47,9 @@ module EvoAuthConcern
   end
 
   def set_current_user_from_auth_data(user_data, token, token_type)
-    tenant_id = user_data.dig('user', 'tenant_id') || user_data['tenant_id']
-    tenant = Tenant.find_by(id: tenant_id)
+    auth_user = user_data['user'] || {}
+    tenant_id = auth_user['tenant_id'] || user_data['tenant_id']
+    tenant = resolve_local_tenant(user_data, tenant_id)
     raise EvoAuthService::ValidationError, 'Company not found' unless tenant
     unless tenant.subscription_access?
       raise EvoAuthService::ValidationError.new(
@@ -62,7 +63,7 @@ module EvoAuthConcern
     Current.tenant_id = tenant.id
     Current.account = tenant.account_payload
 
-    user = find_local_user(user_data['user'], tenant.id)
+    user = find_or_sync_local_user(auth_user, tenant.id)
     raise EvoAuthService::ValidationError, 'User not found locally' unless user
 
     # Set current user
@@ -99,6 +100,92 @@ module EvoAuthConcern
 
     User.where(tenant_id: tenant_id).find_by(id: user_data['id']) ||
       User.where(tenant_id: tenant_id).find_by(email: user_data['email'])
+  end
+
+  # Auth and CRM can be upgraded independently. Existing community installations
+  # already have CRM users/data before the auth service starts issuing tenant IDs,
+  # and a short deployment window can therefore produce a valid token whose
+  # company has not yet been mirrored in the CRM database. Prefer the tenant
+  # already attached to the exact local user so upgrades keep their historical
+  # inboxes. Brand-new accounts are provisioned from the signed auth response.
+  def resolve_local_tenant(user_data, tenant_id)
+    tenant = Tenant.unscoped.find_by(id: tenant_id)
+    return tenant if tenant
+
+    auth_user = user_data['user'] || {}
+    local_user = User.unscoped.find_by(id: auth_user['id'])
+    local_user ||= User.unscoped.find_by(email: auth_user['email'].to_s.downcase) if auth_user['email'].present?
+    legacy_tenant = Tenant.unscoped.find_by(id: local_user&.tenant_id)
+
+    if legacy_tenant
+      Rails.logger.warn(
+        "EvoAuth: reconciled missing auth company #{tenant_id} " \
+        "to existing CRM company #{legacy_tenant.id} for user #{auth_user['id']}"
+      )
+      return legacy_tenant
+    end
+
+    provision_local_tenant(user_data, tenant_id)
+  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
+    Rails.logger.error "EvoAuth: failed to provision company #{tenant_id}: #{e.message}"
+    Tenant.unscoped.find_by(id: tenant_id)
+  end
+
+  def provision_local_tenant(user_data, tenant_id)
+    return nil if tenant_id.blank?
+
+    account = Array(user_data['accounts']).find { |item| item['id'].to_s == tenant_id.to_s }
+    account ||= Array(user_data['accounts']).first || {}
+    auth_user = user_data['user'] || {}
+
+    Tenant.unscoped.create_or_find_by!(id: tenant_id) do |record|
+      record.name = account['name'].presence || auth_user['company_name'].presence || 'Minha empresa'
+      record.slug = available_tenant_slug(account['slug'], record.name, tenant_id)
+      record.domain = account['domain']
+      record.support_email = account['support_email'].presence || auth_user['email']
+      record.locale = account['locale'].presence || 'pt-BR'
+      record.status = normalized_tenant_status(account['status'])
+      record.subscription_status = normalized_subscription_status(account['subscription_status'])
+      record.trial_ends_at = account['trial_ends_at']
+      record.subscription_ends_at = account['subscription_ends_at']
+      record.settings = account['settings'].presence || {}
+      record.custom_attributes = account['custom_attributes'].presence || {}
+    end
+  end
+
+  def available_tenant_slug(remote_slug, name, tenant_id)
+    base = remote_slug.to_s.parameterize.presence || name.to_s.parameterize.presence || 'empresa'
+    return base unless Tenant.unscoped.where(slug: base).where.not(id: tenant_id).exists?
+
+    "#{base}-#{tenant_id.to_s.delete('-').first(8)}"
+  end
+
+  def normalized_tenant_status(status)
+    Tenant.statuses.key?(status.to_s) ? status : 'active'
+  end
+
+  def normalized_subscription_status(status)
+    Tenant.subscription_statuses.key?(status.to_s) ? status : 'active'
+  end
+
+  def find_or_sync_local_user(user_data, tenant_id)
+    user = find_local_user(user_data, tenant_id)
+    return user if user
+    return nil if user_data.blank? || user_data['id'].blank? || user_data['email'].blank?
+
+    User.unscoped.create_or_find_by!(id: user_data['id']) do |record|
+      record.tenant_id = tenant_id
+      record.name = user_data['name'].presence || user_data['email']
+      record.display_name = user_data['display_name'].presence || record.name
+      record.email = user_data['email'].to_s.downcase
+      record.uid = record.email
+      record.provider = user_data['provider'].presence || 'email'
+      record.type = user_data['type'].presence || 'User'
+      record.confirmed_at = user_data['confirmed_at'].presence || Time.current
+    end
+  rescue ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique => e
+    Rails.logger.error "EvoAuth: failed to sync user #{user_data['id']}: #{e.message}"
+    find_local_user(user_data, tenant_id)
   end
 
   # Override current_user method to return our authenticated user
