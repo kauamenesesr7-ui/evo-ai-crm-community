@@ -158,7 +158,6 @@ class ImportLokagendaBusinessData < ActiveRecord::Migration[7.1]
     upsert_rental_item!(tenant_id, rental_id, now)
     upsert_quote!(tenant_id, contact_id, now)
     upsert_contract!(tenant_id, contact_id, rental_id, template_id, now)
-    sync_imported_sale!(tenant_id, rental_id)
   end
 
   def down
@@ -282,28 +281,4 @@ class ImportLokagendaBusinessData < ActiveRecord::Migration[7.1]
     connection.quote(value)
   end
 
-  def sync_imported_sale!(tenant_id, rental_id)
-    # ActiveRecord::Migration defines its own `Current` constant. Always use
-    # the application-level request context explicitly inside migrations.
-    previous_tenant_id = ::Current.tenant_id
-    ::Current.tenant_id = tenant_id
-    [Rental, RentalItem, Product, Contract, ContractTemplate, FinancialEntry].each(&:reset_column_information)
-    rental = Rental.find(rental_id)
-    contract = Contract.find_by(rental_id: rental.id)
-    if contract&.contract_template
-      rendered = Contracts::TemplateRenderer.new(contract.contract_template.content, rental: rental).call
-      contract.update_columns(
-        content: rendered,
-        metadata: (contract.metadata || {}).merge(
-          'template_snapshot' => contract.contract_template.content,
-          'rendered_snapshot' => rendered,
-          'template_version' => contract.contract_template.version
-        ),
-        updated_at: Time.current
-      )
-    end
-    Rentals::LifecycleService.new(rental, actor: User.where(tenant_id: tenant_id).order(:created_at).first).sync!
-  ensure
-    ::Current.tenant_id = previous_tenant_id
-  end
 end
