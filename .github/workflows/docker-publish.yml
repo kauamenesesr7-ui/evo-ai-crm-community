@@ -30,7 +30,7 @@ jobs:
   build-pr:
     # Só PR interna (mesmo repo): PR de fork não tem os secrets DOCKERHUB_* e
     # não deve buildar/pushar código não-confiável com nossas credenciais.
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.repository_owner == 'evolution-foundation' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     name: Build PR image (amd64)
     runs-on: ubuntu-latest
     steps:
@@ -78,7 +78,7 @@ jobs:
   # manifest and pushed to the promoted tags (:develop, :latest, :vX.Y.Z).
   # ---------------------------------------------------------------------------
   build:
-    if: github.event_name != 'pull_request'
+    if: github.repository_owner == 'evolution-foundation' && github.event_name != 'pull_request'
     name: Build ${{ matrix.platform == 'linux/amd64' && 'amd64' || 'arm64' }}
     runs-on: ${{ matrix.runner }}
     strategy:
@@ -133,7 +133,7 @@ jobs:
           retention-days: 1
 
   merge:
-    if: github.event_name != 'pull_request'
+    if: github.repository_owner == 'evolution-foundation' && github.event_name != 'pull_request'
     name: Merge Manifests & Tag
     needs: build
     runs-on: ubuntu-latest
