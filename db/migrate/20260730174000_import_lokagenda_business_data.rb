@@ -283,8 +283,10 @@ class ImportLokagendaBusinessData < ActiveRecord::Migration[7.1]
   end
 
   def sync_imported_sale!(tenant_id, rental_id)
-    previous_tenant_id = Current.tenant_id
-    Current.tenant_id = tenant_id
+    # ActiveRecord::Migration defines its own `Current` constant. Always use
+    # the application-level request context explicitly inside migrations.
+    previous_tenant_id = ::Current.tenant_id
+    ::Current.tenant_id = tenant_id
     [Rental, RentalItem, Product, Contract, ContractTemplate, FinancialEntry].each(&:reset_column_information)
     rental = Rental.find(rental_id)
     contract = Contract.find_by(rental_id: rental.id)
@@ -302,6 +304,6 @@ class ImportLokagendaBusinessData < ActiveRecord::Migration[7.1]
     end
     Rentals::LifecycleService.new(rental, actor: User.where(tenant_id: tenant_id).order(:created_at).first).sync!
   ensure
-    Current.tenant_id = previous_tenant_id
+    ::Current.tenant_id = previous_tenant_id
   end
 end
