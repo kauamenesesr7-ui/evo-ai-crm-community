@@ -72,7 +72,10 @@ module EvoAuthConcern
     Current.authentication_method = token_type
 
     # Store role key from evo-auth for permission checks
-    role_key = user_data.dig('user', 'role', 'key') || user_data.dig('role', 'key')
+    role_key =
+      user_data.dig('user', 'role', 'key') ||
+      user_data.dig('role', 'key') ||
+      user.role&.key
     Current.evo_role_key = role_key
 
     # Resolve the granular `conversations.read_all` permission once per request and
