@@ -32,7 +32,13 @@ class Api::V1::RentalsController < Api::V1::BusinessResourceController
   end
 
   def destroy
-    @rental.destroy!
+    Rental.transaction do
+      pipeline_item = @rental.pipeline_item
+      @rental.update!(status: 'canceled')
+      Rentals::LifecycleService.new(@rental).sync!
+      @rental.destroy!
+      pipeline_item&.destroy!
+    end
     success_response(data: { id: @rental.id }, message: 'Rental deleted successfully')
   end
 

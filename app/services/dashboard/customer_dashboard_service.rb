@@ -121,19 +121,26 @@ module Dashboard
     end
 
     def build_pipeline
-      pipeline_items = scoped_pipeline_items.includes(:pipeline_stage)
+      pipeline_items = scoped_pipeline_items.includes(:pipeline_stage, :conversation, :pipeline_item_products)
       stages = pipeline_items.group_by(&:pipeline_stage).map do |stage, stage_items|
+        stage_value = if stage&.stage_cancelled?
+                        0
+                      elsif stage&.stage_completed?
+                        stage_items.select(&:counts_as_sale?).sum(&:commercial_value)
+                      else
+                        stage_items.select { |item| item.related_to.present? }.sum(&:commercial_value)
+                      end
         {
           id: stage&.id,
           name: stage&.name || 'Sem estágio',
           count: stage_items.count,
-          value: stage_items.sum(&:services_total_value).round(2)
+          value: stage_value.round(2)
         }
       end
 
       {
         total: pipeline_items.count,
-        total_value: pipeline_items.sum(&:services_total_value).round(2),
+        total_value: pipeline_items.select(&:counts_as_sale?).sum(&:commercial_value).round(2),
         stages: stages.sort_by { |item| -item[:count] }
       }
     end

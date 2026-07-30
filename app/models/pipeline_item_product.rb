@@ -43,6 +43,7 @@ class PipelineItemProduct < ApplicationRecord
   validate :variant_belongs_to_product
 
   before_validation :snapshot_price_and_currency, on: :create
+  after_commit :sync_pipeline_sale, on: %i[create update destroy]
 
   def subtotal
     return 0 if quantity.blank? || locked_unit_price.blank?
@@ -51,6 +52,13 @@ class PipelineItemProduct < ApplicationRecord
   end
 
   private
+
+  def sync_pipeline_sale
+    item = PipelineItem.find_by(id: pipeline_item_id)
+    Pipelines::CommercialSyncService.new(item).call if item
+  rescue StandardError => e
+    Rails.logger.error("[CommercialSync] pipeline product=#{id} failed: #{e.class}: #{e.message}")
+  end
 
   def snapshot_price_and_currency
     return unless product

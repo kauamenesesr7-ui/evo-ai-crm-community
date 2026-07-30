@@ -86,14 +86,24 @@ class Pipeline < ApplicationRecord
   # CONTAGEM; sem isto, qualquer relatório financeiro (inclusive o do assistente) conclui
   # "não há valores". services_total_value já existe no PipelineItem.
   def total_value
-    pipeline_items.sum(&:services_total_value)
+    pipeline_items
+      .includes(:pipeline_stage, :conversation, :pipeline_item_products)
+      .select(&:counts_as_sale?)
+      .sum(&:commercial_value)
   end
 
   # Valor agregado POR ETAPA (stage_id/name => soma dos serviços dos itens daquela etapa).
   # Espelha stage_counts, mas com dinheiro em vez de contagem.
   def stage_values
     pipeline_stages.each_with_object({}) do |stage, acc|
-      acc[stage.name] = stage.pipeline_items.sum(&:services_total_value)
+      items = stage.pipeline_items.includes(:conversation, :pipeline_item_products)
+      acc[stage.name] = if stage.stage_cancelled?
+                          0
+                        elsif stage.stage_completed?
+                          items.select(&:counts_as_sale?).sum(&:commercial_value)
+                        else
+                          items.select { |item| item.related_to.present? }.sum(&:commercial_value)
+                        end
     end
   end
 

@@ -61,6 +61,7 @@ class PipelineItem < ApplicationRecord
   validate :validate_custom_fields_structure
 
   before_save :normalize_services_data!
+  before_save :synchronize_completion_timestamp
   after_create :create_entry_movement
   # `_commit` so the Wisper publish + dispatcher dispatch (and the Sidekiq job
   # they enqueue) only fire after the transaction commits — avoids orphan jobs
@@ -80,6 +81,8 @@ class PipelineItem < ApplicationRecord
   after_update :publish_pipeline_item_updated
   after_update :publish_pipeline_item_completed, if: :saved_change_to_completed_at?
   after_destroy :publish_pipeline_item_deleted
+  after_commit :sync_commercial_state, on: %i[create update]
+  after_destroy_commit :cancel_commercial_state
 
   scope :in_stage, ->(stage) { where(pipeline_stage: stage) }
   scope :active, -> { where(completed_at: nil) }
@@ -126,6 +129,24 @@ class PipelineItem < ApplicationRecord
     custom_fields['services'].sum do |service|
       service['value'].to_f
     end
+  end
+
+  # A card can receive values through the legacy "Serviços" editor or through
+  # the relational product catalogue. They are two representations of the same
+  # sale, so never add both (rental synchronization intentionally fills both).
+  def commercial_value
+    products_value = total_value
+    products_value.positive? ? products_value : services_total_value
+  end
+
+  def counts_as_sale?
+    return false unless pipeline_stage&.stage_completed?
+    return false if related_to.blank? || commercial_value <= 0
+
+    rental_reference = custom_fields&.dig('rental_id')
+    return true if rental_reference.blank?
+
+    Rental.where(id: rental_reference).where.not(status: 'canceled').exists?
   end
 
   def pending_tasks_count
@@ -254,6 +275,30 @@ class PipelineItem < ApplicationRecord
   end
 
   private
+
+  def synchronize_completion_timestamp
+    return if pipeline_stage.blank?
+
+    if pipeline_stage.stage_active?
+      self.completed_at = nil
+    else
+      self.completed_at ||= Time.current
+    end
+  end
+
+  def sync_commercial_state
+    return unless saved_change_to_pipeline_stage_id? || saved_change_to_custom_fields? || previous_changes.key?('completed_at')
+
+    Pipelines::CommercialSyncService.new(self).call
+  rescue StandardError => e
+    Rails.logger.error("[CommercialSync] pipeline_item=#{id} failed: #{e.class}: #{e.message}")
+  end
+
+  def cancel_commercial_state
+    Pipelines::CommercialSyncService.cancel_for(id, tenant_id: pipeline.tenant_id)
+  rescue StandardError => e
+    Rails.logger.error("[CommercialSync] pipeline_item=#{id} destroy cleanup failed: #{e.class}: #{e.message}")
+  end
 
   def validate_custom_fields_structure
     return if custom_fields.blank?

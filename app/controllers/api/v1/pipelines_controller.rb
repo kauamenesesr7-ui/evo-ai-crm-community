@@ -227,6 +227,7 @@ class Api::V1::PipelinesController < Api::V1::BaseController
                               :pipeline_stage,
                               :contact,
                               :tasks,
+                              :pipeline_item_products,
                               conversation: [
                                 :contact,
                                 :assignee,

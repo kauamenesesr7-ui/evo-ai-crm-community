@@ -188,7 +188,6 @@ module Rentals
 
     def render_draft_contract!(contract, template)
       return if template.blank? || contract.status == 'signed'
-      return unless contract.content.to_s.include?('{{')
 
       rendered_content = Contracts::TemplateRenderer.new(template.content, rental: rental).call
       metadata = (contract.metadata || {}).merge(

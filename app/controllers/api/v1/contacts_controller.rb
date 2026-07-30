@@ -589,6 +589,15 @@ class Api::V1::ContactsController < Api::V1::BaseController
   def cleanup_contact_dependent_records(contact)
     conversation_ids = contact.conversations.pluck(:id)
 
+    Rental.where(contact_id: contact.id).find_each do |rental|
+      rental.update!(status: 'canceled')
+      Rentals::LifecycleService.new(rental).sync!
+      rental.update!(contact: nil)
+    end
+    FinancialEntry.where(contact_id: contact.id).update_all(contact_id: nil, updated_at: Time.current)
+    Contract.where(contact_id: contact.id).update_all(contact_id: nil, updated_at: Time.current)
+    BusinessReminder.where(contact_id: contact.id).update_all(contact_id: nil, updated_at: Time.current)
+
     contact.conversations.find_each do |conversation|
       conversation.facebook_comment_moderations.destroy_all
       conversation.pipeline_items.destroy_all

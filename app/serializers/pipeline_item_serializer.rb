@@ -138,15 +138,15 @@ module PipelineItemSerializer
     # Include services info if requested
     if include_services_info
       currency = pipeline_item.custom_fields&.dig('currency') || 'BRL'
-      total_value = pipeline_item.services_total_value
+      total_value = pipeline_item.commercial_value
       services = pipeline_item.custom_fields&.dig('services') || []
       
       result[:services_info] = {
         total_value: total_value,
         currency: currency,
-        formatted_total: pipeline_item.formatted_services_total(currency),
+        formatted_total: format('%.2f', total_value).tr('.', ','),
         services_count: services.length,
-        has_services: services.any? && total_value > 0,
+        has_services: total_value > 0,
         services: services.map do |service|
           service_info = {
             name: service['name'],

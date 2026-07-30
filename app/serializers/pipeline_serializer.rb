@@ -55,8 +55,10 @@ module PipelineSerializer
           labels_by_id ||= all_labels.index_by { |label| label.id.to_s }
         end
 
-        # Serialize only active items (completed journeys are accessible via pipeline_items endpoint with status=completed)
-        active_items = pipeline.pipeline_items.select { |item| item.completed_at.nil? }
+        # Keep won/cancelled cards visible on the board. Previously they counted
+        # in the header but disappeared from every column, producing a "R$ X
+        # with no contact" board.
+        active_items = pipeline.pipeline_items.select { |item| item.related_to.present? }
 
         # Batch task counts once for this pipeline's active items to avoid the
         # 5-COUNT-per-item N+1 inside PipelineItemSerializer. Caller can override

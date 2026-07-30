@@ -5,6 +5,7 @@ class FinancialEntry < ApplicationRecord
   belongs_to :tenant
   belongs_to :rental, optional: true
   belongs_to :contact, optional: true
+  belongs_to :pipeline_item, optional: true
 
   validates :kind, inclusion: { in: KINDS }
   validates :status, inclusion: { in: STATUSES }

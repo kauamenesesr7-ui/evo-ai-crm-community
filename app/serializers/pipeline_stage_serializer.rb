@@ -36,7 +36,15 @@ module PipelineStageSerializer
       # Per-stage services total (same services_total_value the pipeline/board sum on).
       # Lets the list surface value-per-stage (e.g. the "Ganhos"/completed-stage value)
       # without loading every item into the list payload.
-      result[:total_value] = pipeline_stage.pipeline_items.sum(&:services_total_value)
+      result[:total_value] = if pipeline_stage.stage_cancelled?
+                               0
+                             elsif pipeline_stage.stage_completed?
+                               pipeline_stage.pipeline_items.select(&:counts_as_sale?).sum(&:commercial_value)
+                             else
+                               pipeline_stage.pipeline_items
+                                             .select { |item| item.related_to.present? }
+                                             .sum(&:commercial_value)
+                             end
     end
 
     result
