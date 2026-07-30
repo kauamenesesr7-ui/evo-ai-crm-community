@@ -150,9 +150,19 @@ class Api::BaseController < ApplicationController
 
     # In production, don't expose internal error details
     if Rails.env.production?
+      diagnostic_details =
+        if Current.evo_role_key == 'super_admin'
+          {
+            exception_class: exception.class.name,
+            exception_message: exception.message,
+            request_id: request.request_id
+          }
+        end
+
       error_response(
         ApiErrorCodes::INTERNAL_ERROR,
         'An unexpected error occurred',
+        details: diagnostic_details,
         status: :internal_server_error
       )
     else
