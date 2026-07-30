@@ -175,10 +175,33 @@ module Rentals
     end
 
     def ensure_contract!
-      return if rental.contracts.exists?
+      contract = rental.contracts.order(created_at: :asc).first
+      template = contract&.contract_template ||
+                 ContractTemplate.where(is_default: true).order(version: :desc).first
 
-      template = ContractTemplate.where(is_default: true).order(version: :desc).first
-      template&.create_contract!(rental: rental)
+      if contract
+        render_draft_contract!(contract, template)
+      else
+        template&.create_contract!(rental: rental)
+      end
+    end
+
+    def render_draft_contract!(contract, template)
+      return if template.blank? || contract.status == 'signed'
+      return unless contract.content.to_s.include?('{{')
+
+      rendered_content = Contracts::TemplateRenderer.new(template.content, rental: rental).call
+      metadata = (contract.metadata || {}).merge(
+        'template_snapshot' => template.content,
+        'rendered_snapshot' => rendered_content,
+        'template_version' => template.version
+      )
+      contract.update!(
+        contract_template: template,
+        template_version: template.version,
+        content: rendered_content,
+        metadata: metadata
+      )
     end
 
     def rental_custom_fields
