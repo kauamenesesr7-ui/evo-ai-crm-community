@@ -14,6 +14,8 @@ class FinancialEntry < ApplicationRecord
 
   before_validation :sync_paid_status
 
+  scope :receivable, -> { where(kind: 'receivable') }
+  scope :payable, -> { where(kind: 'payable') }
   scope :due_first, -> { order(:due_on, :created_at) }
 
   private
