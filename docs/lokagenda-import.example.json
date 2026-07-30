@@ -1,0 +1,63 @@
+{
+  "company": {
+    "name": "Empresa de Eventos",
+    "phone": "(00) 00000-0000",
+    "email": "contato@empresa.com",
+    "address": "Rua Exemplo, 100",
+    "city": "Cidade",
+    "state": "UF",
+    "postal_code": "00000-000"
+  },
+  "products": [
+    {
+      "source_id": "lokagenda-product-id",
+      "name": "Brinquedo",
+      "description": "Descrição do produto",
+      "price": 500,
+      "stock_quantity": 1,
+      "track_stock": true,
+      "status": "active",
+      "image_url": "https://example.com/product.jpg"
+    }
+  ],
+  "contacts": [
+    {
+      "source_id": "lokagenda-contact-id",
+      "name": "Cliente",
+      "phone": "11999999999",
+      "email": "cliente@example.com",
+      "city": "Cidade",
+      "state": "UF"
+    }
+  ],
+  "rentals": [
+    {
+      "source_id": "lokagenda-rental-id",
+      "contact_source_id": "lokagenda-contact-id",
+      "title": "Evento do cliente",
+      "starts_at": "2026-08-06T12:00:00-03:00",
+      "ends_at": "2026-08-06T16:00:00-03:00",
+      "venue": "Cidade, UF",
+      "status": "confirmed",
+      "total_amount": 500,
+      "paid_amount": 0,
+      "items": [
+        {
+          "product_source_id": "lokagenda-product-id",
+          "name": "Brinquedo",
+          "unit_price": 500,
+          "quantity": 1
+        }
+      ]
+    }
+  ],
+  "contracts": [
+    {
+      "source_id": "lokagenda-contract-id",
+      "title": "Contrato de locação padrão",
+      "content": "<p>Conteúdo do contrato</p>",
+      "template": true,
+      "status": "draft"
+    }
+  ]
+}
