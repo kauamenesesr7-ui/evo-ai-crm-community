@@ -49,7 +49,7 @@ class Product < ApplicationRecord
   validates :status, presence: true, inclusion: { in: STATUSES }
   validates :default_price, presence: true, numericality: { greater_than_or_equal_to: 0 }
   validates :currency, presence: true, inclusion: { in: ALLOWED_CURRENCIES }
-  validates :sku, uniqueness: true, allow_blank: true
+  validates :sku, uniqueness: { scope: :tenant_id }, allow_blank: true
   validates :stock_quantity, numericality: { greater_than_or_equal_to: 0, only_integer: true }, allow_nil: true
   validates :purchase_url, format: { with: URL_REGEXP }, allow_blank: true
 

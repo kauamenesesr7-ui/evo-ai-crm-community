@@ -1,4 +1,19 @@
 class ApplicationJob < ActiveJob::Base
+  attr_accessor :tenant_id
+
+  before_enqueue do |job|
+    job.tenant_id ||= Current.tenant_id
+  end
+
+  def serialize
+    super.merge('tenant_id' => tenant_id)
+  end
+
+  def deserialize(job_data)
+    super
+    self.tenant_id = job_data['tenant_id']
+  end
+
   # https://api.rubyonrails.org/v5.2.1/classes/ActiveJob/Exceptions/ClassMethods.html
   discard_on ActiveJob::DeserializationError do |job, error|
     Rails.logger.info("Skipping #{job.class} with #{
@@ -19,9 +34,15 @@ class ApplicationJob < ActiveJob::Base
   # the correct value for free.
   around_perform do |_job, block|
     needed_account = Current.account.nil?
-    Current.account = RuntimeConfig.account if needed_account
+    if tenant_id.present?
+      Current.tenant_id = tenant_id
+      Current.tenant = Tenant.find(tenant_id)
+      Current.account = Current.tenant.account_payload
+    elsif needed_account
+      Current.account = RuntimeConfig.account
+    end
     block.call
   ensure
-    Current.account = nil if needed_account
+    Current.reset
   end
 end

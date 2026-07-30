@@ -31,7 +31,7 @@ class ProductVariant < ApplicationRecord
 
   validates :name, presence: true, length: { maximum: 255 }
   validates :name, uniqueness: { scope: :product_id, case_sensitive: false }
-  validates :sku, uniqueness: true, allow_blank: true
+  validates :sku, uniqueness: { scope: :tenant_id }, allow_blank: true
   validates :price_override, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
   validates :stock_quantity, numericality: { greater_than_or_equal_to: 0, only_integer: true }, allow_nil: true
 

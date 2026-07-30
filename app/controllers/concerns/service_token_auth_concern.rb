@@ -33,7 +33,6 @@ module ServiceTokenAuthConcern
 
     Rails.logger.info "ServiceToken: Service token validation successful"
     set_service_authenticated_context
-    true
   end
 
   def valid_service_token?
@@ -47,6 +46,16 @@ module ServiceTokenAuthConcern
   end
 
   def set_service_authenticated_context
+    tenant_id = request.headers['X-Tenant-Id'] || request.headers['HTTP_X_TENANT_ID']
+    tenant = Tenant.find_by(id: tenant_id)
+    unless tenant&.subscription_access?
+      render_service_token_unauthorized('Valid X-Tenant-Id header is required')
+      return false
+    end
+
+    Current.tenant = tenant
+    Current.tenant_id = tenant.id
+    Current.account = tenant.account_payload
     # Set a flag to indicate this is a service-to-service call
     Current.service_authenticated = true
     Current.authentication_method = 'service_token'
@@ -55,6 +64,7 @@ module ServiceTokenAuthConcern
 
     # For service-to-service calls, we might not have a specific user context
     # Instead, we operate with elevated privileges for internal operations
+    true
   end
 
   def render_service_token_unauthorized(message = 'Unauthorized')

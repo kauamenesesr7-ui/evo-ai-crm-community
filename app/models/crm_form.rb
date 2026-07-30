@@ -45,7 +45,7 @@ class CrmForm < ApplicationRecord
   before_validation :generate_slug, on: :create
 
   validates :name, presence: true, length: { maximum: 255 }
-  validates :slug, presence: true, uniqueness: true, length: { maximum: 255 },
+  validates :slug, presence: true, uniqueness: { scope: :tenant_id }, length: { maximum: 255 },
                    format: { with: /\A[a-z0-9\-]+\z/, message: 'must be lowercase alphanumeric with dashes' }
   validate :validate_fields_schema
   validate :validate_routing_rules

@@ -26,7 +26,7 @@
 class ChatPage < ApplicationRecord
   before_validation :generate_slug, on: :create
 
-  validates :slug, presence: true, uniqueness: true, length: { maximum: 255 },
+  validates :slug, presence: true, uniqueness: { scope: :tenant_id }, length: { maximum: 255 },
                    format: { with: /\A[a-z0-9\-]+\z/, message: 'must be lowercase alphanumeric with dashes' }
   validates :website_token, presence: true
   validate :website_token_matches_widget

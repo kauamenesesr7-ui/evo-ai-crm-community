@@ -553,6 +553,20 @@ Rails.application.routes.draw do
 
       resources :upload, only: [:create], controller: 'uploads'
 
+      resource :business_overview, only: :show, controller: 'business_overview'
+      resources :rentals
+      resources :financial_entries do
+        post :mark_paid, on: :member
+      end
+      resources :business_reminders do
+        post :deliver, on: :member
+        post :dismiss, on: :member
+      end
+      resources :contracts do
+        post :sign, on: :member
+        get :pdf, on: :member
+      end
+
       resources :templates, controller: 'templates', only: [] do
         collection do
           get :exportable_inventory

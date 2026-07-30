@@ -63,6 +63,8 @@ class User < ApplicationRecord
   include Avatarable
   include UserAttributeHelpers
 
+  belongs_to :tenant
+
   # Role relationships (synced from evo-auth-service)
   has_many :user_roles, dependent: :destroy_async
   has_many :roles, through: :user_roles

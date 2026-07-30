@@ -20,7 +20,7 @@ class Team < ApplicationRecord
 
   validates :name,
             presence: { message: I18n.t('errors.validations.presence') },
-            uniqueness: { case_sensitive: false },
+            uniqueness: { case_sensitive: false, scope: :tenant_id },
             length: { maximum: 255 }
   validates :description, length: { maximum: 500 }
 
@@ -61,4 +61,3 @@ class Team < ApplicationRecord
     }
   end
 end
-

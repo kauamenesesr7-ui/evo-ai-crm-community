@@ -61,7 +61,7 @@ class MessageTemplate < ApplicationRecord
   validates :content, presence: true
   # When channel_type/channel_id are nil this scopes uniqueness to the global
   # (nil, nil) bucket, i.e. global template names are unique.
-  validates :name, uniqueness: { scope: [:channel_type, :channel_id] }
+  validates :name, uniqueness: { scope: %i[tenant_id channel_type channel_id] }
   validates :language, presence: true
   validates :media_type, inclusion: { in: %w[image video document audio] }, allow_nil: true
   # Provenance/idempotency key for rows ported into the global flow (EVO-1234).

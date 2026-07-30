@@ -51,13 +51,13 @@ class Contact < ApplicationRecord
   TYPES = %w[person company group].freeze
 
   validates :type, presence: true, inclusion: { in: TYPES }
-  validates :email, allow_blank: true, uniqueness: { case_sensitive: false },
+  validates :email, allow_blank: true, uniqueness: { case_sensitive: false, scope: :tenant_id },
                     format: { with: URI::MailTo::EMAIL_REGEXP, message: I18n.t('errors.contacts.email.invalid') }
-  validates :identifier, allow_blank: true, uniqueness: true
+  validates :identifier, allow_blank: true, uniqueness: { scope: :tenant_id }
   validates :phone_number,
-            allow_blank: true, uniqueness: true,
+            allow_blank: true, uniqueness: { scope: :tenant_id },
             format: { with: /\+[1-9]\d{1,14}\z/, message: I18n.t('errors.contacts.phone_number.invalid') }
-  validates :tax_id, allow_blank: true, uniqueness: true, length: { maximum: 14 }
+  validates :tax_id, allow_blank: true, uniqueness: { scope: :tenant_id }, length: { maximum: 14 }
   validates :website, allow_blank: true, format: { with: URI::DEFAULT_PARSER.make_regexp(%w[http https]), message: 'must be a valid URL' }
   has_many :conversations, dependent: :destroy_async
   has_many :contact_inboxes, dependent: :destroy_async

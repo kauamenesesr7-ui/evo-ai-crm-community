@@ -32,7 +32,7 @@ class Pipeline < ApplicationRecord
   has_many :conversations, through: :pipeline_items
   has_many :pipeline_service_definitions, dependent: :nullify
 
-  validates :name, presence: true, uniqueness: true
+  validates :name, presence: true, uniqueness: { scope: :tenant_id }
   validates :pipeline_type, inclusion: { in: VALID_TYPES }
 
   enum :visibility, { private: 0, team: 1, public: 2 }, prefix: :visibility

@@ -37,7 +37,7 @@ class CustomAttributeDefinition < ApplicationRecord
 
   validates :attribute_key,
             presence: true,
-            uniqueness: { scope: [:attribute_model] }
+            uniqueness: { scope: %i[tenant_id attribute_model] }
 
   validates :attribute_display_type, presence: true
   validates :attribute_model, presence: true

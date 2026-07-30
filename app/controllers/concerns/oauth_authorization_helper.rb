@@ -98,6 +98,19 @@ module OauthAuthorizationHelper
     return unless @resource
 
     Current.user = @resource
+    Current.tenant_id = @resource.tenant_id
+    Current.tenant = Tenant.find_by(id: @resource.tenant_id)
+    unless Current.tenant&.subscription_access?
+      render json: {
+        success: false,
+        error: {
+          code: ApiErrorCodes::ACCOUNT_SUSPENDED,
+          message: 'Subscription inactive'
+        }
+      }, status: :payment_required
+      return
+    end
+    Current.account = Current.tenant.account_payload
     # Inbox visibility is permission-driven (User#assigned_inboxes): without
     # this flag every OAuth caller — admins included — would be scoped to
     # explicit inbox memberships. Mirrors EvoAuthConcern for bearer tokens;

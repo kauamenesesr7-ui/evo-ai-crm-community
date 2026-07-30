@@ -47,7 +47,22 @@ module EvoAuthConcern
   end
 
   def set_current_user_from_auth_data(user_data, token, token_type)
-    user = find_local_user(user_data['user'])
+    tenant_id = user_data.dig('user', 'tenant_id') || user_data['tenant_id']
+    tenant = Tenant.find_by(id: tenant_id)
+    raise EvoAuthService::ValidationError, 'Company not found' unless tenant
+    unless tenant.subscription_access?
+      raise EvoAuthService::ValidationError.new(
+        'Subscription inactive',
+        code: ApiErrorCodes::ACCOUNT_SUSPENDED,
+        status: :payment_required
+      )
+    end
+
+    Current.tenant = tenant
+    Current.tenant_id = tenant.id
+    Current.account = tenant.account_payload
+
+    user = find_local_user(user_data['user'], tenant.id)
     raise EvoAuthService::ValidationError, 'User not found locally' unless user
 
     # Set current user
@@ -71,8 +86,6 @@ module EvoAuthConcern
         has_user_permission?(user.id, 'conversations.read_all')
       end
 
-    Current.account ||= RuntimeConfig.account
-
     # Store tokens for downstream services
     if token_type == 'bearer'
       Current.bearer_token = token
@@ -81,10 +94,11 @@ module EvoAuthConcern
     end
   end
 
-  def find_local_user(user_data)
+  def find_local_user(user_data, tenant_id)
     return nil unless user_data
 
-    User.find_by(email: user_data['email']) || User.find_by(id: user_data['id'])
+    User.where(tenant_id: tenant_id).find_by(id: user_data['id']) ||
+      User.where(tenant_id: tenant_id).find_by(email: user_data['email'])
   end
 
   # Override current_user method to return our authenticated user

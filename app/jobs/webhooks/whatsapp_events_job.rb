@@ -5,6 +5,7 @@ class Webhooks::WhatsappEventsJob < ApplicationJob
     Rails.logger.info "WhatsApp webhook processing started: #{params.inspect}"
 
     channel = find_channel(params)
+    set_tenant_context!(channel)
     if channel_is_inactive?(channel)
       # Fix B (EVO-1967): reconciliacao ativa. Se chega uma mensagem real e a Evolution
       # reporta a instancia como 'open', a flag de reauthorization esta presa indevidamente
@@ -31,9 +32,20 @@ class Webhooks::WhatsappEventsJob < ApplicationJob
     else
       handle_message_events(channel, params)
     end
+  ensure
+    Current.reset
   end
 
   private
+
+  def set_tenant_context!(channel)
+    raise ActiveRecord::RecordNotFound, 'WhatsApp channel not found' unless channel
+
+    tenant = Tenant.find(channel.tenant_id)
+    Current.tenant = tenant
+    Current.tenant_id = tenant.id
+    Current.account = tenant.account_payload
+  end
 
   def sync_event?(params)
     # WhatsApp Cloud sync events
