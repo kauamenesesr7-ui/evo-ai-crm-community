@@ -42,7 +42,7 @@ class Api::V1::ContractTemplatesController < Api::V1::BusinessResourceController
 
   def template_params
     params.require(:contract_template).permit(
-      :name, :content, :version, :is_default, :source_external_id, metadata: {}
+      :name, :content, :version, :is_default, metadata: {}
     )
   end
 end
