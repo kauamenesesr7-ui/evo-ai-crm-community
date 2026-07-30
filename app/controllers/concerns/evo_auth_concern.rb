@@ -72,10 +72,14 @@ module EvoAuthConcern
     Current.authentication_method = token_type
 
     # Store role key from evo-auth for permission checks
-    role_key =
+    remote_role_key =
       user_data.dig('user', 'role', 'key') ||
-      user_data.dig('role', 'key') ||
-      user.role&.key
+      user_data.dig('role', 'key')
+    local_role_keys = user.roles.pluck(:key)
+    local_role_key =
+      local_role_keys.find { |key| key.in?(Role::ADMIN_ROLE_KEYS) } ||
+      local_role_keys.first
+    role_key = remote_role_key.presence || local_role_key
     Current.evo_role_key = role_key
 
     # Resolve the granular `conversations.read_all` permission once per request and
