@@ -30,6 +30,8 @@ class Api::V1::ProductsController < Api::V1::BaseController
   end
 
   def create
+    return if reject_legacy_catalog_fields!
+
     @product = Product.new(product_params)
 
     if @product.save
@@ -46,6 +48,8 @@ class Api::V1::ProductsController < Api::V1::BaseController
   end
 
   def update
+    return if reject_legacy_catalog_fields!
+
     if @product.update(product_params)
       attach_images
       apply_labels
@@ -59,6 +63,12 @@ class Api::V1::ProductsController < Api::V1::BaseController
   end
 
   def bulk
+    return error_response(
+      ApiErrorCodes::FORBIDDEN,
+      'Bulk import is disabled for the AppEventos rental catalog',
+      status: :forbidden
+    )
+
     items = extract_bulk_items
     return if items.nil?
 
@@ -158,11 +168,11 @@ class Api::V1::ProductsController < Api::V1::BaseController
 
   def filtered_products
     scope = Product.all
-    scope = scope.by_kind(params[:kind])
     scope = scope.by_status(params[:status])
+    scope = scope.by_rental_category(params[:rental_category])
     if params[:q].present?
       term = "%#{params[:q]}%"
-      scope = scope.where('name ILIKE :t OR sku ILIKE :t OR description ILIKE :t', t: term)
+      scope = scope.where('name ILIKE :t OR description ILIKE :t', t: term)
     end
     scope.order_by_recent
   end
@@ -171,16 +181,27 @@ class Api::V1::ProductsController < Api::V1::BaseController
     params
       .require(:product)
       .permit(
-        :name, :slug, :kind, :description, :sku,
-        :default_price, :currency, :purchase_url,
-        :status, :stock_quantity,
-        metadata: {},
-        variants_attributes: [
-          :id, :_destroy, :name, :sku,
-          :price_override, :stock_quantity, :position,
-          { attributes_data: {} }
-        ]
+        :name, :slug, :description, :default_price,
+        :status, :stock_quantity, :rental_category,
+        metadata: {}
       )
+      .merge(kind: 'physical', currency: 'BRL', sku: nil, purchase_url: nil)
+  end
+
+  def reject_legacy_catalog_fields!
+    product = params[:product]
+    return false unless product.respond_to?(:key?)
+
+    forbidden = %i[sku kind type purchase_url purchase_link].select { |key| product.key?(key) }
+    return false if forbidden.empty?
+
+    error_response(
+      ApiErrorCodes::VALIDATION_ERROR,
+      'SKU, product type and purchase link are not supported in the rental catalog',
+      details: { forbidden_fields: forbidden },
+      status: :unprocessable_entity
+    )
+    true
   end
 
   def label_list_param
@@ -198,12 +219,16 @@ class Api::V1::ProductsController < Api::V1::BaseController
   end
 
   def attach_images
-    signed_ids = Array(params.dig(:product, :images) || params[:images])
-    signed_ids = signed_ids.reject { |sid| sid.respond_to?(:read) } # ignore raw files in this iteration
-    return if signed_ids.empty?
+    images = Array(params.dig(:product, :images) || params[:images])
+    return if images.empty?
 
-    signed_ids.each do |signed_id|
-      blob = ActiveStorage::Blob.find_signed(signed_id)
+    images.each do |image|
+      if image.respond_to?(:read)
+        @product.images.attach(image)
+        next
+      end
+
+      blob = ActiveStorage::Blob.find_signed(image)
       @product.images.attach(blob) if blob.present?
     rescue ActiveSupport::MessageVerifier::InvalidSignature
       next

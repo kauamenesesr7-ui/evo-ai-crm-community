@@ -8,6 +8,11 @@ module Whatsapp::EvolutionGoHandlers::MessagesUpsert
   private
 
   def handle_message
+    if group_message?
+      Rails.logger.info "Evolution Go API: Ignoring group message #{raw_message_id}"
+      return
+    end
+
     if protocol_message?
       handle_revoke_protocol
       return
@@ -39,11 +44,7 @@ module Whatsapp::EvolutionGoHandlers::MessagesUpsert
   end
 
   def set_contact
-    if group_message?
-      set_group_contact
-    else
-      set_individual_contact
-    end
+    set_individual_contact
   end
 
   def set_group_contact
@@ -658,5 +659,4 @@ module Whatsapp::EvolutionGoHandlers::MessagesUpsert
     end
   end
 end
-
 

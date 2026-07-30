@@ -29,6 +29,7 @@ class Product < ApplicationRecord
 
   KINDS    = %w[physical digital].freeze
   STATUSES = %w[active inactive draft].freeze
+  RENTAL_CATEGORIES = %w[inflatable mobile_buffet].freeze
   ALLOWED_CURRENCIES = %w[BRL USD EUR].freeze
   URL_REGEXP = %r{\Ahttps?://[^\s]+\z}.freeze
 
@@ -52,10 +53,13 @@ class Product < ApplicationRecord
   validates :sku, uniqueness: { scope: :tenant_id }, allow_blank: true
   validates :stock_quantity, numericality: { greater_than_or_equal_to: 0, only_integer: true }, allow_nil: true
   validates :purchase_url, format: { with: URL_REGEXP }, allow_blank: true
+  validates :rental_category, inclusion: { in: RENTAL_CATEGORIES }
+  validates :source_external_id, uniqueness: { scope: :tenant_id }, allow_blank: true
 
   scope :active,   -> { where(status: 'active') }
   scope :by_kind,  ->(kind) { where(kind: kind) if kind.present? }
   scope :by_status, ->(status) { where(status: status) if status.present? }
+  scope :by_rental_category, ->(category) { where(rental_category: category) if category.present? }
   scope :order_by_recent, -> { order(created_at: :desc) }
 
   # Returns the effective unit price for a given variant. When the variant

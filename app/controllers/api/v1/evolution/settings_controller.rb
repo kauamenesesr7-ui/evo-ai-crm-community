@@ -143,7 +143,7 @@ class Api::V1::Evolution::SettingsController < Api::V1::BaseController
     settings_body = {
       rejectCall: instance_settings['rejectCall'],
       msgCall: instance_settings['msgCall'],
-      groupsIgnore: instance_settings['groupsIgnore'],
+      groupsIgnore: true,
       alwaysOnline: instance_settings['alwaysOnline'],
       readMessages: instance_settings['readMessages'],
       syncFullHistory: instance_settings['syncFullHistory'],

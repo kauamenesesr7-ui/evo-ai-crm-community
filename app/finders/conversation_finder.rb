@@ -80,6 +80,12 @@ class ConversationFinder
 
     # Filter out conversations without contacts (data integrity)
     query = query.joins(:contact)
+                 .left_joins(:contact_inbox)
+                 .where.not(contacts: { type: 'group' })
+                 .where("contacts.identifier IS NULL OR contacts.identifier NOT LIKE '%@g.us'")
+                 .where("contact_inboxes.source_id IS NULL OR contact_inboxes.source_id NOT LIKE '%@g.us'")
+                 .where("conversations.additional_attributes->>'evolution_chat_id' IS NULL OR " \
+                        "conversations.additional_attributes->>'evolution_chat_id' NOT LIKE '%@g.us'")
 
     # Apply inbox filtering first (most selective)
     query = apply_inbox_filter(query)
@@ -211,9 +217,9 @@ class ConversationFinder
   # Naturalmente vazio em canais sem grupos (cloud/Telegram). O contato já está
   # joined em build_base_filter_query.
   def apply_is_group_filter(query)
-    return query unless ActiveModel::Type::Boolean.new.cast(@params[:is_group])
+    return query.none if ActiveModel::Type::Boolean.new.cast(@params[:is_group])
 
-    query.where(contacts: { type: 'group' })
+    query
   end
 
   # Aba "Arquivadas": archived vive em custom_attributes.archived (jsonb boolean).

@@ -345,7 +345,7 @@ class Api::V1::Evolution::AuthorizationsController < Api::V1::BaseController
     settings_body = {
       rejectCall: instance_settings['rejectCall'],
       msgCall: instance_settings['msgCall'],
-      groupsIgnore: instance_settings['groupsIgnore'],
+      groupsIgnore: true,
       alwaysOnline: instance_settings['alwaysOnline'],
       readMessages: instance_settings['readMessages'],
       readStatus: instance_settings['readStatus']

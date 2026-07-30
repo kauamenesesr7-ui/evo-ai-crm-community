@@ -13,6 +13,7 @@ module Api
         before_action :fetch_agent_bot, only: [:set_agent_bot]
         before_action :validate_limit, only: [:create]
         before_action :validate_channel_limit_for_creation, only: [:create]
+        before_action :ensure_app_eventos_supported_channel!, only: [:create]
         # we are already handling the authorization in fetch inbox
 
         require_permissions({
@@ -597,6 +598,19 @@ module Api
           end
 
           account_channels_method.create!(permitted_params(channel_type_from_params::EDITABLE_ATTRS)[:channel].except(:type))
+        end
+
+        def ensure_app_eventos_supported_channel!
+          channel = params[:channel] || params.dig(:inbox, :channel) || {}
+          channel_type = channel[:type].to_s
+          provider = channel[:provider].to_s
+          return if channel_type == 'whatsapp' && provider == 'evolution'
+
+          error_response(
+            ApiErrorCodes::VALIDATION_ERROR,
+            'Somente WhatsApp via Evolution API está disponível. Os demais canais estão em desenvolvimento.',
+            status: :unprocessable_entity
+          )
         end
 
         def update_inbox_working_hours

@@ -16,17 +16,16 @@ module ProductSerializer
       id: product.id,
       name: product.name,
       slug: product.slug,
-      kind: product.kind,
+      kind: 'physical',
       description: product.description,
-      sku: product.sku,
       default_price: product.default_price.to_f,
       currency: product.currency,
-      purchase_url: product.purchase_url,
+      rental_category: product.rental_category,
       status: product.status,
       stock_quantity: product.stock_quantity,
       metadata: product.metadata || {},
       labels: product.respond_to?(:label_list) ? product.label_list : [],
-      variants: serialize_variants(product.variants),
+      variants: [],
       images: serialize_images(product),
       created_at: product.created_at&.iso8601,
       updated_at: product.updated_at&.iso8601
@@ -40,12 +39,6 @@ module ProductSerializer
   end
 
   private
-
-  def serialize_variants(variants)
-    return [] unless variants
-
-    variants.map { |variant| ProductVariantSerializer.serialize(variant) }
-  end
 
   def serialize_images(product)
     return [] unless product.respond_to?(:images) && product.images.attached?

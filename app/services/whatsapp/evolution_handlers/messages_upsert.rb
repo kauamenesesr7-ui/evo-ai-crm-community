@@ -21,6 +21,11 @@ module Whatsapp::EvolutionHandlers::MessagesUpsert
     @contact = nil
     @raw_message = message_data
 
+    if jid_type == 'group'
+      Rails.logger.info "Evolution API: Ignoring group message #{raw_message_id}"
+      return
+    end
+
     Rails.logger.info "Evolution API: Processing message #{raw_message_id} (fromMe: #{!incoming?})"
 
     if incoming?
@@ -63,11 +68,7 @@ module Whatsapp::EvolutionHandlers::MessagesUpsert
   end
 
   def set_contact
-    if jid_type == 'group'
-      set_group_contact
-    else
-      set_individual_contact
-    end
+    set_individual_contact
   end
 
   def set_group_contact
@@ -174,7 +175,7 @@ module Whatsapp::EvolutionHandlers::MessagesUpsert
   end
 
   def message_processable?
-    return false unless jid_type.in?(%w[user group])
+    return false unless jid_type == 'user'
     return false if ignore_message?
     return false if find_message_by_source_id(raw_message_id) || message_under_process?
 

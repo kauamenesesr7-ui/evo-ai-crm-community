@@ -10,6 +10,7 @@ class FinancialEntry < ApplicationRecord
   validates :status, inclusion: { in: STATUSES }
   validates :description, :due_on, presence: true
   validates :amount, numericality: { greater_than: 0 }
+  validates :source_external_id, uniqueness: { scope: :tenant_id }, allow_blank: true
 
   before_validation :sync_paid_status
 

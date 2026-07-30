@@ -34,6 +34,16 @@ Rails.application.routes.draw do
   get '/api', to: 'api#index'
   namespace :api, defaults: { format: 'json' } do
     namespace :v1 do
+      namespace :public do
+        get 'contracts/:token', to: 'contracts#show'
+        post 'contracts/:token/sign', to: 'contracts#sign'
+        get 'contracts/:token/pdf', to: 'contracts#pdf'
+      end
+
+      namespace :super_admin do
+        resource :overview, only: :show, controller: :overview
+      end
+
       namespace :admin do
         get 'app_configs/:config_type', to: 'app_configs#show', as: :app_config
         post 'app_configs/:config_type', to: 'app_configs#create', as: :app_configs
@@ -564,8 +574,10 @@ Rails.application.routes.draw do
       end
       resources :contracts do
         post :sign, on: :member
+        post :customer_sign, on: :member
         get :pdf, on: :member
       end
+      resources :contract_templates
 
       resources :templates, controller: 'templates', only: [] do
         collection do

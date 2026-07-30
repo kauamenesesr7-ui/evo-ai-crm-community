@@ -36,7 +36,13 @@ class Conversations::CachedCountService
   end
 
   def calculate_counts_from_database
-    base_query = Conversation.all
+    base_query = Conversation.joins(:contact)
+                             .left_joins(:contact_inbox)
+                             .where.not(contacts: { type: 'group' })
+                             .where("contacts.identifier IS NULL OR contacts.identifier NOT LIKE '%@g.us'")
+                             .where("contact_inboxes.source_id IS NULL OR contact_inboxes.source_id NOT LIKE '%@g.us'")
+                             .where("conversations.additional_attributes->>'evolution_chat_id' IS NULL OR " \
+                                    "conversations.additional_attributes->>'evolution_chat_id' NOT LIKE '%@g.us'")
 
     # Apply filters efficiently
     base_query = apply_filters(base_query)
